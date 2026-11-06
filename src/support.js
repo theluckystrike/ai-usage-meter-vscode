@@ -63,7 +63,7 @@ const LIVE = [
 ];
 const QUEUED = [
   [
-    "zovo.jsonl-viewer",
+    "zovo.zovo-jsonl-viewer",
     "JSONL Viewer",
     "opens JSONL and NDJSON files as a table, as records or as a chat view.",
     "https://github.com/theluckystrike/jsonl-viewer-vscode"
@@ -93,7 +93,7 @@ const QUEUED = [
     "https://github.com/theluckystrike/video-preview-vscode"
   ],
   [
-    "zovo.graphviz-preview",
+    "zovo.zovo-graphviz-preview",
     "Graphviz Preview & DOT Viewer",
     "shows a live preview of DOT files and exports SVG or PNG.",
     "https://github.com/theluckystrike/graphviz-preview-vscode"
@@ -121,6 +121,30 @@ const QUEUED = [
     "3D Model Viewer",
     "views GLB, glTF, STL, OBJ, PLY and 3MF models.",
     "https://github.com/theluckystrike/model-viewer-vscode"
+  ],
+  [
+    "zovo.zovo-json-tree-viewer",
+    "JSON Viewer & JSON Tree",
+    "shows large JSON files as a searchable tree, copies JSONPath and turns arrays of objects into a table.",
+    "https://github.com/theluckystrike/json-tree-viewer-vscode"
+  ],
+  [
+    "zovo.zovo-pickle-viewer",
+    "PKL Viewer & Pickle Viewer",
+    "opens Python pickle files without Python and never runs their code.",
+    "https://github.com/theluckystrike/pickle-viewer-vscode"
+  ],
+  [
+    "zovo.ai-usage-meter",
+    "Claude Code & Codex Usage Meter",
+    "shows Claude Code and Codex tokens and estimated cost from your local session files.",
+    "https://github.com/theluckystrike/ai-usage-meter-vscode"
+  ],
+  [
+    "zovo.dxf-viewer",
+    "DXF Viewer & CAD Viewer",
+    "opens ASCII and binary DXF drawings with layers, measuring and PNG or SVG export.",
+    "https://github.com/theluckystrike/dxf-viewer-vscode"
   ],
   [
     "zovo.zovo-file-viewers",

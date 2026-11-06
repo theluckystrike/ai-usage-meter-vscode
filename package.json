@@ -2,7 +2,7 @@
   "name": "ai-usage-meter",
   "displayName": "Claude Code Usage & Codex Usage Cost Meter",
   "description": "See today's Claude Code and Codex tokens and estimated cost in the status bar, with the Claude Code 5-hour block, Codex rate limits and a 30-day dashboard. Offline. Not affiliated with Anthropic or OpenAI.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "zovo",
   "license": "MIT",
   "icon": "icon.png",
@@ -155,17 +155,31 @@
           "additionalProperties": {
             "type": "object",
             "properties": {
-              "input": { "type": "number", "minimum": 0 },
-              "output": { "type": "number", "minimum": 0 },
-              "cacheWrite": { "type": "number", "minimum": 0 },
-              "cacheRead": { "type": "number", "minimum": 0 }
+              "input": {
+                "type": "number",
+                "minimum": 0
+              },
+              "output": {
+                "type": "number",
+                "minimum": 0
+              },
+              "cacheWrite": {
+                "type": "number",
+                "minimum": 0
+              },
+              "cacheRead": {
+                "type": "number",
+                "minimum": 0
+              }
             }
           },
           "markdownDescription": "Your own prices in US dollars per million tokens, by model id or model id prefix. A row here replaces the built-in row for that model. The built-in prices were taken on 2026-11-06 and are estimates. Example: `{ \"claude-opus-5-5\": { \"input\": 4, \"output\": 20, \"cacheWrite\": 5, \"cacheRead\": 0.2 } }`"
         },
         "aiUsageMeter.claudeRoots": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "default": [],
           "scope": "machine",
           "order": 8,
@@ -173,7 +187,9 @@
         },
         "aiUsageMeter.codexRoots": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "default": [],
           "scope": "machine",
           "order": 9,
@@ -203,21 +219,32 @@
             "id": "status",
             "title": "Read the status bar",
             "description": "The item at the right of the status bar shows today's tokens and estimated cost per tool, the time left in the Claude Code 5-hour block and the Codex limits. Hover it for details.",
-            "media": { "markdown": "walkthrough/status.md" }
+            "media": {
+              "markdown": "walkthrough/status.md"
+            }
           },
           {
             "id": "dashboard",
             "title": "Open the dashboard",
             "description": "Totals per day, project folder, model and tool, with a 30-day chart.\n[Open Usage Dashboard](command:aiUsageMeter.openDashboard)",
-            "media": { "image": "images/dashboard-dark.png", "altText": "The usage dashboard with today tiles, the 5-hour block, Codex limits and a stacked bar chart per day." },
-            "completionEvents": [ "onCommand:aiUsageMeter.openDashboard" ]
+            "media": {
+              "image": "images/dashboard-dark.png",
+              "altText": "The usage dashboard with today tiles, the 5-hour block, Codex limits and a stacked bar chart per day."
+            },
+            "completionEvents": [
+              "onCommand:aiUsageMeter.openDashboard"
+            ]
           },
           {
             "id": "prices",
             "title": "Check the prices",
             "description": "Costs are estimates from a price table. Change any row to match your plan or a new model.\n[Edit Price Table](command:aiUsageMeter.editPrices)",
-            "media": { "markdown": "walkthrough/prices.md" },
-            "completionEvents": [ "onCommand:aiUsageMeter.editPrices" ]
+            "media": {
+              "markdown": "walkthrough/prices.md"
+            },
+            "completionEvents": [
+              "onCommand:aiUsageMeter.editPrices"
+            ]
           }
         ]
       }
@@ -228,13 +255,13 @@
     "fixtures": "node scripts/make-fixtures.js test/fixtures",
     "package": "npx -y @vscode/vsce@3 package --no-dependencies -o dist/"
   },
-  "homepage": "https://github.com/theluckystrike/ai-usage-meter#readme",
+  "homepage": "https://github.com/theluckystrike/ai-usage-meter-vscode#readme",
   "bugs": {
-    "url": "https://github.com/theluckystrike/ai-usage-meter/issues"
+    "url": "https://github.com/theluckystrike/ai-usage-meter-vscode/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/theluckystrike/ai-usage-meter"
+    "url": "https://github.com/theluckystrike/ai-usage-meter-vscode"
   },
   "sponsor": {
     "url": "https://github.com/sponsors/theluckystrike"

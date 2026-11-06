@@ -30,5 +30,5 @@ test('manifest: id, name, keywords and the not-affiliated line', () => {
   assert.ok(pkg.displayName.startsWith('Claude Code Usage'));
   assert.ok(pkg.keywords.length <= 30);
   assert.match(pkg.description, /Not affiliated with Anthropic or OpenAI\./);
-  assert.equal(pkg.version, '0.1.0');
+  assert.equal(pkg.version, '0.1.1');
 });

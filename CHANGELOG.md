@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1 (2026-11-06)
+
+- New `.github/FUNDING.yml`, so the GitHub repository shows a Sponsor button like the Marketplace listing does.
+- The "More free viewers" list now has the newest Zovo extensions and the current ids of JSONL Viewer and Graphviz Preview.
+- The README has a short Support section and lists all Zovo extensions, with the ones that are not on the Marketplace yet linked to GitHub.
+- The repository, homepage and issues links in the listing now point to the real repository, theluckystrike/ai-usage-meter-vscode.
+
 ## 0.1.0
 
 - First release.

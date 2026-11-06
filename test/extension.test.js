@@ -89,3 +89,37 @@ test('extension: activates, reads the fixture folders, fills the status bar and 
   p.dispose();
   ext.deactivate();
 });
+
+// ---------- support links (Sponsor, More free viewers) ----------
+test('support: package.json has the sponsor field, the two commands, the setting and the real repo link', () => {
+  const pkg = require('../package.json');
+  const support = require('../src/support');
+  assert.equal(pkg.sponsor.url, 'https://github.com/sponsors/theluckystrike');
+  assert.equal(pkg.sponsor.url, support.sponsorUrl());
+  const ids = pkg.contributes.commands.map((c) => c.command);
+  assert.ok(ids.includes('aiUsageMeter.supportDeveloper') && ids.includes('aiUsageMeter.moreViewers'));
+  assert.equal(pkg.contributes.configuration.properties['aiUsageMeter.showSupportLinks'].default, true);
+  assert.equal(pkg.repository.url, 'https://github.com/theluckystrike/ai-usage-meter-vscode');
+  assert.ok(support.otherProducts('zovo.ai-usage-meter').every((p) => p.id !== 'zovo.ai-usage-meter'));
+});
+
+test('support: the dashboard footer shows by default and aiUsageMeter.showSupportLinks=false hides it', async (t) => {
+  const fx = fixtures(Date.now());
+  t.after(fx.cleanup);
+  for (const [extra, shown] of [[{}, true], [{ showSupportLinks: false }, false]]) {
+    const f = fakeVscode({ claudeRoots: [fx.claudeRoot], codexRoots: [fx.codexRoot], refreshSeconds: 3600, ...extra });
+    let opts = null;
+    const create = f.vscode.window.createWebviewPanel;
+    f.vscode.window.createWebviewPanel = (type, title, col, o) => { opts = o; return create(type, title, col, o); };
+    const ext = withVscode(f.vscode, () => { delete require.cache[require.resolve('../src/extension')]; return require('../src/extension'); });
+    const context = { subscriptions: [], extensionPath: require('path').join(__dirname, '..'), globalState: { get() {}, async update() {} } };
+    ext.activate(context);
+    await f.vscode.commands.executeCommand('aiUsageMeter.openDashboard');
+    const html = f.panels[0].webview.html;
+    assert.equal(/id="zovo-support"/.test(html), shown, JSON.stringify(extra));
+    assert.equal(html.includes('command:aiUsageMeter.moreViewers'), shown);
+    assert.deepEqual(opts.enableCommandUris, ['aiUsageMeter.supportDeveloper', 'aiUsageMeter.moreViewers', 'workbench.action.openSettings']);
+    f.panels[0].dispose();
+    ext.deactivate();
+  }
+});
