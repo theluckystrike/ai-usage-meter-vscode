@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.vsix
+samples/
+e2e-tmp/
+.e2e*/

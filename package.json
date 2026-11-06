@@ -1,0 +1,242 @@
+{
+  "name": "ai-usage-meter",
+  "displayName": "Claude Code Usage & Codex Usage Cost Meter",
+  "description": "See today's Claude Code and Codex tokens and estimated cost in the status bar, with the Claude Code 5-hour block, Codex rate limits and a 30-day dashboard. Offline. Not affiliated with Anthropic or OpenAI.",
+  "version": "0.1.0",
+  "publisher": "zovo",
+  "license": "MIT",
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#1B1F2A",
+    "theme": "dark"
+  },
+  "engines": {
+    "vscode": "^1.90.0",
+    "node": ">=18"
+  },
+  "categories": [
+    "AI",
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "claude code usage",
+    "claude usage",
+    "codex usage",
+    "claude code",
+    "codex",
+    "claude code cost",
+    "token usage",
+    "tokens",
+    "cost",
+    "usage",
+    "usage meter",
+    "usage tracker",
+    "rate limit",
+    "rate limits",
+    "5 hour limit",
+    "claude limits",
+    "codex limits",
+    "status bar",
+    "statusbar",
+    "dashboard",
+    "anthropic",
+    "openai",
+    "ccusage",
+    "cost tracker",
+    "token counter",
+    "ai usage",
+    "llm",
+    "agent",
+    "offline",
+    "privacy"
+  ],
+  "main": "./src/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": false
+  },
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "aiUsageMeter.openDashboard",
+        "title": "Open Usage Dashboard",
+        "category": "AI Usage",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "aiUsageMeter.refresh",
+        "title": "Refresh Usage",
+        "category": "AI Usage",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "aiUsageMeter.editPrices",
+        "title": "Edit Price Table",
+        "category": "AI Usage"
+      },
+      {
+        "command": "aiUsageMeter.openSettings",
+        "title": "Settings",
+        "category": "AI Usage"
+      },
+      {
+        "command": "aiUsageMeter.openWalkthrough",
+        "title": "Get Started",
+        "category": "AI Usage"
+      },
+      {
+        "command": "aiUsageMeter.supportDeveloper",
+        "title": "Support the developer",
+        "category": "AI Usage"
+      },
+      {
+        "command": "aiUsageMeter.moreViewers",
+        "title": "More free viewers",
+        "category": "AI Usage"
+      }
+    ],
+    "configuration": {
+      "title": "Claude Code & Codex Usage",
+      "properties": {
+        "aiUsageMeter.showClaudeCode": {
+          "type": "boolean",
+          "default": true,
+          "order": 1,
+          "description": "Show Claude Code usage in the status bar and the dashboard."
+        },
+        "aiUsageMeter.showCodex": {
+          "type": "boolean",
+          "default": true,
+          "order": 2,
+          "description": "Show Codex usage and rate limits in the status bar and the dashboard."
+        },
+        "aiUsageMeter.statusBar": {
+          "type": "boolean",
+          "default": true,
+          "order": 3,
+          "description": "Show the usage item in the status bar."
+        },
+        "aiUsageMeter.statusBarCost": {
+          "type": "boolean",
+          "default": true,
+          "order": 4,
+          "description": "Show the estimated cost next to the token count in the status bar."
+        },
+        "aiUsageMeter.refreshSeconds": {
+          "type": "number",
+          "default": 60,
+          "minimum": 10,
+          "maximum": 3600,
+          "order": 5,
+          "description": "Read new lines from the session files at least this often (seconds). File changes also trigger a read within 2 seconds."
+        },
+        "aiUsageMeter.historyDays": {
+          "type": "number",
+          "default": 90,
+          "minimum": 7,
+          "maximum": 3650,
+          "order": 6,
+          "description": "Read usage from this many past days. Files not changed in that time are skipped."
+        },
+        "aiUsageMeter.prices": {
+          "type": "object",
+          "default": {},
+          "order": 7,
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "input": { "type": "number", "minimum": 0 },
+              "output": { "type": "number", "minimum": 0 },
+              "cacheWrite": { "type": "number", "minimum": 0 },
+              "cacheRead": { "type": "number", "minimum": 0 }
+            }
+          },
+          "markdownDescription": "Your own prices in US dollars per million tokens, by model id or model id prefix. A row here replaces the built-in row for that model. The built-in prices were taken on 2026-11-06 and are estimates. Example: `{ \"claude-opus-5-5\": { \"input\": 4, \"output\": 20, \"cacheWrite\": 5, \"cacheRead\": 0.2 } }`"
+        },
+        "aiUsageMeter.claudeRoots": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "scope": "machine",
+          "order": 8,
+          "markdownDescription": "Folders that hold Claude Code projects. Empty = `$CLAUDE_CONFIG_DIR/projects`, else `~/.claude/projects`."
+        },
+        "aiUsageMeter.codexRoots": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "scope": "machine",
+          "order": 9,
+          "markdownDescription": "Folders that hold Codex `rollout-*.jsonl` files. Empty = `$CODEX_HOME/sessions`, else `~/.codex/sessions`."
+        },
+        "aiUsageMeter.askForRating": {
+          "type": "boolean",
+          "default": true,
+          "order": 20,
+          "description": "Ask one time for a Marketplace rating after you have used the dashboard for a few days. You can answer \"Later\" or \"Don't ask again\". Nothing is sent anywhere."
+        },
+        "aiUsageMeter.showSupportLinks": {
+          "type": "boolean",
+          "default": true,
+          "order": 21,
+          "description": "Show the small Sponsor and More free viewers links at the end of the dashboard. Nothing is sent anywhere."
+        }
+      }
+    },
+    "walkthroughs": [
+      {
+        "id": "aiUsageMeter.start",
+        "title": "Get started with Claude Code & Codex Usage",
+        "description": "Track tokens, estimated cost and limits for Claude Code and Codex. Nothing leaves your machine.",
+        "steps": [
+          {
+            "id": "status",
+            "title": "Read the status bar",
+            "description": "The item at the right of the status bar shows today's tokens and estimated cost per tool, the time left in the Claude Code 5-hour block and the Codex limits. Hover it for details.",
+            "media": { "markdown": "walkthrough/status.md" }
+          },
+          {
+            "id": "dashboard",
+            "title": "Open the dashboard",
+            "description": "Totals per day, project folder, model and tool, with a 30-day chart.\n[Open Usage Dashboard](command:aiUsageMeter.openDashboard)",
+            "media": { "image": "images/dashboard-dark.png", "altText": "The usage dashboard with today tiles, the 5-hour block, Codex limits and a stacked bar chart per day." },
+            "completionEvents": [ "onCommand:aiUsageMeter.openDashboard" ]
+          },
+          {
+            "id": "prices",
+            "title": "Check the prices",
+            "description": "Costs are estimates from a price table. Change any row to match your plan or a new model.\n[Edit Price Table](command:aiUsageMeter.editPrices)",
+            "media": { "markdown": "walkthrough/prices.md" },
+            "completionEvents": [ "onCommand:aiUsageMeter.editPrices" ]
+          }
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "fixtures": "node scripts/make-fixtures.js test/fixtures",
+    "package": "npx -y @vscode/vsce@3 package --no-dependencies -o dist/"
+  },
+  "homepage": "https://github.com/theluckystrike/ai-usage-meter#readme",
+  "bugs": {
+    "url": "https://github.com/theluckystrike/ai-usage-meter/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/theluckystrike/ai-usage-meter"
+  },
+  "sponsor": {
+    "url": "https://github.com/sponsors/theluckystrike"
+  }
+}
