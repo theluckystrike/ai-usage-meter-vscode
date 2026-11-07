@@ -1,8 +1,8 @@
 {
   "name": "ai-usage-meter",
-  "displayName": "Claude Code Usage & Codex Usage Cost Meter",
-  "description": "See today's Claude Code and Codex tokens and estimated cost in the status bar, with the Claude Code 5-hour block, Codex rate limits and a 30-day dashboard. Offline. Not affiliated with Anthropic or OpenAI.",
-  "version": "0.1.3",
+  "displayName": "Claude Code Usage, Codex Usage & Gemini CLI Usage Meter",
+  "description": "Claude Code usage, Codex usage and Gemini CLI usage in the status bar: tokens, estimated cost and your Claude Code 5-hour and weekly limit, read offline from local files. Codex rate limits and a 30-day dashboard. Not affiliated with Anthropic, OpenAI or Google.",
+  "version": "0.2.0",
   "publisher": "zovo",
   "license": "MIT",
   "icon": "icon.png",
@@ -21,33 +21,33 @@
   ],
   "keywords": [
     "claude code usage",
-    "claude usage",
     "codex usage",
+    "gemini cli usage",
+    "claude usage",
     "claude code",
     "codex",
+    "gemini cli",
     "claude code cost",
+    "codex cost",
     "token usage",
-    "tokens",
-    "cost",
-    "usage",
     "usage meter",
     "usage tracker",
+    "claude usage tracker",
+    "cost tracker",
     "rate limit",
-    "rate limits",
     "5 hour limit",
+    "weekly limit",
     "claude limits",
+    "claude code limit",
     "codex limits",
     "status bar",
-    "statusbar",
     "dashboard",
     "anthropic",
     "openai",
+    "gemini",
     "ccusage",
-    "cost tracker",
     "token counter",
-    "ai usage",
-    "llm",
-    "agent",
+    "multiple accounts",
     "offline",
     "privacy"
   ],
@@ -106,7 +106,7 @@
       }
     ],
     "configuration": {
-      "title": "Claude Code & Codex Usage",
+      "title": "Claude Code, Codex & Gemini CLI Usage",
       "properties": {
         "aiUsageMeter.showClaudeCode": {
           "type": "boolean",
@@ -119,6 +119,12 @@
           "default": true,
           "order": 2,
           "description": "Show Codex usage and rate limits in the status bar and the dashboard."
+        },
+        "aiUsageMeter.showGemini": {
+          "type": "boolean",
+          "default": true,
+          "order": 2,
+          "description": "Show Gemini CLI usage when Gemini CLI session files are found."
         },
         "aiUsageMeter.statusBar": {
           "type": "boolean",
@@ -195,6 +201,22 @@
           "order": 9,
           "markdownDescription": "Folders that hold Codex `rollout-*.jsonl` files. Empty = `$CODEX_HOME/sessions`, else `~/.codex/sessions`."
         },
+        "aiUsageMeter.geminiRoots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "machine",
+          "order": 10,
+          "markdownDescription": "Folders that hold Gemini CLI projects with `chats/session-*.json` files. Empty = `~/.gemini/tmp`."
+        },
+        "aiUsageMeter.findClaudeAccounts": {
+          "type": "boolean",
+          "default": true,
+          "order": 11,
+          "markdownDescription": "When `claudeRoots` is empty and `CLAUDE_CONFIG_DIR` is not set, also read other Claude Code config folders in your home folder, such as `~/.claude-work` or `~/.config/claude`. Each one shows as its own account."
+        },
         "aiUsageMeter.askForRating": {
           "type": "boolean",
           "default": true,
@@ -212,13 +234,13 @@
     "walkthroughs": [
       {
         "id": "aiUsageMeter.start",
-        "title": "Get started with Claude Code & Codex Usage",
-        "description": "Track tokens, estimated cost and limits for Claude Code and Codex. Nothing leaves your machine.",
+        "title": "Get started with Claude Code, Codex & Gemini CLI Usage",
+        "description": "Track tokens, estimated cost and limits for Claude Code, Codex and Gemini CLI. Nothing leaves your machine.",
         "steps": [
           {
             "id": "status",
             "title": "Read the status bar",
-            "description": "The item at the right of the status bar shows today's tokens and estimated cost per tool, the time left in the Claude Code 5-hour block and the Codex limits. Hover it for details.",
+            "description": "The item at the right of the status bar shows today's tokens and estimated cost per tool, your Claude Code 5-hour and weekly limit and the Codex limits. Hover it for details.",
             "media": {
               "markdown": "walkthrough/status.md"
             }

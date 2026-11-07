@@ -17,7 +17,7 @@ const limits = { ts: NOW - H, plan: 'pro', credits: null, primary: { usedPercent
 test('status: tokens, cost, block countdown and Codex limits', () => {
   const s = summarize(list, { now: NOW, table: buildTable({}).table, days: 1, limits });
   const v = statusView(s, {});
-  assert.match(v.text, /^\$\(pulse\) Claude 1\.2M \$0\.28 · Codex 46k \$0\.02 · \$\(clock\) 4h 0m · Codex 5h 93% wk 50%$/);
+  assert.match(v.text, /^\$\(pulse\) Claude 1\.2M \$0\.28 \$\(clock\) 4h 0m · Codex 46k \$0\.02 5h 93% wk 50%$/);
   assert.equal(v.warn, true, '90% or more warns');
   assert.match(v.tooltip, /Resets at/);
   assert.match(v.tooltip, /estimates/);

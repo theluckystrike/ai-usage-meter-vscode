@@ -4,10 +4,11 @@
 const os = require('os');
 const { PRICES_TAKEN_ON } = require('./prices');
 const { limitView } = require('./format');
+const { windowView } = require('./claudeLimits');
 
 const FROM_WEBVIEW = new Set(['ready', 'refresh', 'setRange', 'openSettings', 'rendered', 'moreRows']);
 const RANGES = [7, 14, 30, 90];
-const SETTING_KEYS = new Set(['prices', 'claudeRoots', 'codexRoots', 'refreshSeconds', 'showClaudeCode', 'showCodex', 'historyDays', '']);
+const SETTING_KEYS = new Set(['prices', 'claudeRoots', 'codexRoots', 'geminiRoots', 'refreshSeconds', 'showClaudeCode', 'showCodex', 'showGemini', 'findClaudeAccounts', 'historyDays', '']);
 const MAX_ROWS = 50;
 
 /** Returns a clean message or null. */
@@ -47,18 +48,21 @@ function dataMessage(summary, ctx = {}) {
   const limits = summary.limits
     ? { ts: summary.limits.ts, plan: summary.limits.plan, credits: summary.limits.credits, primary: limitView(summary.limits.primary, summary.now), secondary: limitView(summary.limits.secondary, summary.now) }
     : null;
+  const claudeLimits = (summary.claudeLimits || []).map((a) => ({ account: shortPath(a.account, home), fetchedAt: a.fetchedAt, windows: a.windows.map((w) => windowView(w, summary.now)) }));
   return {
     type: 'data',
     now: summary.now,
     days: summary.days,
     ranges: RANGES,
-    tools: ctx.tools || { claude: true, codex: true },
+    tools: ctx.tools || { claude: true, codex: true, gemini: true },
     today: summary.today,
     range: summary.range,
     perDay: summary.perDay,
     perProject: p.rows, moreProjects: p.more,
     perModel: m.rows, moreModels: m.more,
     perTool: summary.perTool,
+    perAccount: (summary.perAccount || []).map((r) => ({ ...r, name: shortPath(r.name, home) })),
+    claudeLimits,
     block: summary.block,
     limits,
     unpricedModels: summary.unpricedModels,

@@ -4,6 +4,9 @@
 // Usage: node scripts/make-fixtures.js <outDir> [nowISO]
 //   <outDir>/claude/projects/...      Claude Code root
 //   <outDir>/codex/sessions/...       Codex root
+//   <outDir>/claude/.claude.json      Claude Code config with saved plan limits
+//   <outDir>/claude-work/...          a second Claude Code config folder (account)
+//   <outDir>/gemini/tmp/...           Gemini CLI root, with <outDir>/gemini/projects.json
 const fs = require('fs');
 const path = require('path');
 
@@ -178,12 +181,85 @@ function makeFixtures(outDir, now = Date.now()) {
     { timestamp: iso(old + M), type: 'event_msg', payload: { type: 'token_count', info: { total_token_usage: { input_tokens: 9000, cached_input_tokens: 0, output_tokens: 900, total_tokens: 9900 } }, rate_limits: { primary: { used_percent: 5, window_minutes: 300, resets_in_seconds: 3600 } } } },
   ]));
 
+  // Claude Code saved plan limits. The file also holds account fields with the marker: they must never show.
+  const claudeLimits = {
+    five_hour: { utilization: 34, resets_at: iso(now + 2 * H + 13 * M) },
+    seven_day: { utilization: 61, resets_at: iso(now + 3 * DAY + 5 * H) },
+    seven_day_opus: { utilization: 22, resets_at: iso(now + 3 * DAY + 5 * H) },
+    seven_day_sonnet: null,
+    some_future_window: { utilization: 99, resets_at: iso(now + H) },
+  };
+  const claudeConfig = path.join(outDir, 'claude', '.claude.json');
+  fs.writeFileSync(claudeConfig, JSON.stringify({
+    numStartups: 12, theme: 'dark',
+    oauthAccount: { emailAddress: `${MARK}@example.com`, organizationName: MARK, accountUuid: 'acct-' + MARK },
+    projects: { '/Users/demo/shop-api': { lastPrompt: MARK } },
+    cachedUsageUtilization: { fetchedAtMs: now - 4 * M, accountUuid: 'acct-' + MARK, utilization: claudeLimits },
+  }, null, 2));
+  files.push(claudeConfig);
+
+  // A second Claude Code config folder (another account), with an older saved reading.
+  const workRoot = path.join(outDir, 'claude-work', 'projects');
+  const wsid = '44444444-4444-4444-a444-444444444444';
+  const workMsgs = [];
+  for (let i = 0; i < 4; i++) {
+    const ts = now - 5 * H + i * 20 * M;
+    workMsgs.push(claudeUser(ts - M, '/Users/demo/client-portal', wsid, `Work prompt ${MARK}`));
+    workMsgs.push(claudeAssistant(ts, '/Users/demo/client-portal', wsid, 'msg_work_' + i, 'claude-sonnet-5-5', [800, 1500, 4000, 30000]));
+  }
+  files.push(write(path.join(workRoot, '-Users-demo-client-portal', wsid + '.jsonl'), workMsgs));
+  const workConfig = path.join(outDir, 'claude-work', '.claude.json');
+  fs.writeFileSync(workConfig, JSON.stringify({ cachedUsageUtilization: { fetchedAtMs: now - 3 * H, utilization: { five_hour: { utilization: 12, resets_at: iso(now - 30 * M) }, seven_day: { utilization: 18, resets_at: iso(now + 5 * DAY) } } } }));
+  files.push(workConfig);
+
+  // Gemini CLI: one JSON session today (with a message saved twice), older sessions, and a JSONL session.
+  const geminiRoot = path.join(outDir, 'gemini', 'tmp');
+  fs.mkdirSync(path.join(outDir, 'gemini'), { recursive: true });
+  fs.writeFileSync(path.join(outDir, 'gemini', 'projects.json'), JSON.stringify({ projects: { '/Users/demo/data-pipeline': 'data-pipeline', '/Users/demo/blog-engine': 'blog-engine' } }));
+  const gMsg = (id, ts, model, tk) => ({ id, timestamp: typeof ts === 'string' ? ts : iso(ts), type: 'gemini', content: `Gemini reply ${MARK}`, thoughts: [{ subject: MARK, description: MARK }], tokens: tk, model });
+  const gUser = (id, ts) => ({ id, timestamp: iso(ts), type: 'user', content: `Gemini prompt ${MARK}` });
+  const g0 = now - 4 * H;
+  const geminiToday = { input: 60000, cached: 40000, output: 2500, thoughts: 1500, tool: 0 };
+  const gToday = {
+    sessionId: 'g-today', projectHash: 'abc', startTime: iso(g0), lastUpdated: iso(g0 + 10 * M), kind: 'main',
+    messages: [
+      gUser('gu1', g0),
+      gMsg('gm1', g0 + M, 'gemini-3-flash-preview', { input: 20000, output: 1000, cached: 0, thoughts: 500, tool: 0, total: 21500 }),
+      gUser('gu2', g0 + 5 * M),
+      gMsg('gm2', g0 + 6 * M, 'gemini-3-flash-preview', { input: 40000, output: 1500, cached: 40000, thoughts: 1000, tool: 0, total: 42500 }),
+      { id: 'info1', timestamp: iso(g0 + 7 * M), type: 'info', content: MARK },
+      gMsg('gm-bad', 'not a date', 'gemini-3-flash-preview', { input: 5, output: 5 }),
+    ],
+  };
+  files.push(write(path.join(geminiRoot, 'data-pipeline', 'chats', `session-${iso(g0).slice(0, 16).replace(':', '-')}-gtoday.json`), [gToday]));
+  for (let back = 12; back >= 1; back -= 3) {
+    const t = now - back * DAY - 3 * H;
+    const sess = { sessionId: 'g' + back, projectHash: 'abc', startTime: iso(t), lastUpdated: iso(t + 30 * M), kind: 'main', messages: [] };
+    for (let i = 0; i < 3; i++) {
+      sess.messages.push(gUser('u' + back + i, t + i * 5 * M));
+      const inp = Math.floor(30000 + r() * 50000), cached = Math.floor(inp * 0.6);
+      sess.messages.push(gMsg('m' + back + i, t + i * 5 * M + M, back % 2 ? 'gemini-2.5-pro' : 'gemini-3-pro-preview', { input: inp, output: Math.floor(500 + r() * 3000), cached, thoughts: Math.floor(r() * 2000), tool: 0, total: 0 }));
+    }
+    files.push(write(path.join(geminiRoot, 'blog-engine', 'chats', `session-${iso(t).slice(0, 16).replace(':', '-')}-g${back}.json`), [sess]));
+  }
+  const gl = now - 2 * DAY;
+  files.push(write(path.join(geminiRoot, 'f3a9c1d2e4b5', 'chats', 'session-jsonl-format.jsonl'), [
+    { sessionId: 'gl', projectHash: 'f3a9c1d2e4b5', startTime: iso(gl), kind: 'main' },
+    gUser('lu1', gl),
+    gMsg('lm1', gl + M, 'gemini-2.5-flash', { input: 10000, output: 800, cached: 2000, thoughts: 200, tool: 100, total: 11100 }),
+    gMsg('lm1', gl + M, 'gemini-2.5-flash', { input: 10000, output: 900, cached: 2000, thoughts: 200, tool: 100, total: 11200 }),
+    '{"broken',
+  ]));
+
   return {
-    claudeRoot, codexRoot, files, now, mark: MARK,
+    claudeRoot, codexRoot, geminiRoot, workRoot, claudeConfig, workConfig, files, now, mark: MARK,
     expect: {
       claudeToday: today, blockBStart: blockBTimes[0] - (blockBTimes[0] % H),
       codexToday: { input: t2.input_tokens - t2.cached_input_tokens, cacheRead: t2.cached_input_tokens, output: t2.output_tokens },
       limitsToday,
+      claudeLimits,
+      geminiToday: { input: 20000 + 0, cacheRead: 40000, output: 1000 + 500 + 1500 + 1000 },
+      geminiJsonl: { input: 8000 + 100, cacheRead: 2000, output: 900 + 200 },
     },
   };
 }

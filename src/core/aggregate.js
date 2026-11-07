@@ -4,8 +4,8 @@ const { costOf } = require('./prices');
 
 const HOUR_MS = 60 * 60 * 1000;
 const BLOCK_MS = 5 * HOUR_MS;
-const TOOLS = ['claude', 'codex'];
-const TOOL_NAMES = { claude: 'Claude Code', codex: 'Codex' };
+const TOOLS = ['claude', 'codex', 'gemini'];
+const TOOL_NAMES = { claude: 'Claude Code', codex: 'Codex', gemini: 'Gemini CLI' };
 
 function dayKey(ms) {
   const d = new Date(ms);
@@ -61,25 +61,26 @@ function sortRows(map) {
 }
 
 /**
- * opts: { now, table, days (range for tables and chart), tools: { claude, codex }, limits }
+ * opts: { now, table, days (range for tables and chart), tools: { claude, codex, gemini }, limits (Codex),
+ *   claudeLimits ([{ account, fetchedAt, windows }] from claudeLimits.js) }
  */
 function summarize(entries, opts) {
   const now = opts.now;
   const table = opts.table;
   const days = Math.max(1, Math.min(3650, opts.days || 30));
-  const show = opts.tools || { claude: true, codex: true };
+  const show = opts.tools || { claude: true, codex: true, gemini: true };
   const all = [];
   for (const e of entries) if (show[e.tool] !== false) all.push(e);
   const todayStart = dayStart(now, 0);
   const rangeStart = dayStart(now, days - 1);
 
-  const today = { claude: zero(), codex: zero() };
+  const today = { claude: zero(), codex: zero(), gemini: zero() };
   const dayMap = new Map();
   for (let i = days - 1; i >= 0; i--) {
     const k = dayKey(dayStart(now, i) + HOUR_MS * 12);
-    dayMap.set(k, { day: k, name: k, claude: zero(), codex: zero(), ...zero() });
+    dayMap.set(k, { day: k, name: k, claude: zero(), codex: zero(), gemini: zero(), ...zero() });
   }
-  const projects = new Map(), models = new Map(), tools = new Map();
+  const projects = new Map(), models = new Map(), tools = new Map(), accounts = new Map();
   const unpricedModels = new Set();
   const range = zero();
   for (const e of all) {
@@ -100,6 +101,11 @@ function summarize(entries, opts) {
     add(models.get(mk), e, cost);
     if (!tools.has(e.tool)) tools.set(e.tool, { name: TOOL_NAMES[e.tool], tool: e.tool, ...zero() });
     add(tools.get(e.tool), e, cost);
+    if (e.tool === 'claude') {
+      const ak = e.account || '(default)';
+      if (!accounts.has(ak)) accounts.set(ak, { name: ak, ...zero() });
+      add(accounts.get(ak), e, cost);
+    }
   }
   return {
     now,
@@ -110,8 +116,10 @@ function summarize(entries, opts) {
     perProject: sortRows(projects),
     perModel: sortRows(models),
     perTool: sortRows(tools),
+    perAccount: sortRows(accounts),
     block: show.claude !== false ? claudeBlock(all, now, table) : null,
     limits: show.codex !== false ? opts.limits || null : null,
+    claudeLimits: show.claude !== false ? opts.claudeLimits || [] : [],
     unpricedModels: [...unpricedModels].sort(),
   };
 }

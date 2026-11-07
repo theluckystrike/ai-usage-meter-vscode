@@ -26,9 +26,9 @@ test('offline: no network modules, no fetch, no file writes in shipped code', ()
 test('manifest: id, name, keywords and the not-affiliated line', () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
   assert.equal(`${pkg.publisher}.${pkg.name}`, 'zovo.ai-usage-meter');
-  assert.ok(pkg.displayName.length <= 45);
+  assert.ok(pkg.displayName.length <= 60);
   assert.ok(pkg.displayName.startsWith('Claude Code Usage'));
   assert.ok(pkg.keywords.length <= 30);
-  assert.match(pkg.description, /Not affiliated with Anthropic or OpenAI\./);
-  assert.equal(pkg.version, '0.1.3');
+  assert.match(pkg.description, /Not affiliated with Anthropic, OpenAI or Google\./);
+  assert.equal(pkg.version, '0.2.0');
 });

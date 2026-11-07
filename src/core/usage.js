@@ -1,5 +1,5 @@
 'use strict';
-// Usage-only readers for Claude Code and Codex session records.
+// Usage-only readers for Claude Code, Codex and Gemini CLI session records.
 // They read token counts, model ids, timestamps, the working folder and Codex rate limits. They never copy
 // prompt, reply, tool or reasoning text out of a record, and they skip record types they do not know.
 
@@ -141,4 +141,44 @@ function codexStep(rec, state) {
   return out;
 }
 
-module.exports = { claudeEntry, codexStep, codexLimits, newCodexState, claudeWorth, codexWorth, timeMs, num };
+/**
+ * Gemini CLI session file text (JSON with a messages array, or JSONL with one record per line) -> usage
+ * entries. Gemini counts cached tokens inside `input` and keeps thinking tokens apart from `output`, so the
+ * entry moves cached tokens to cacheRead and adds thinking tokens to output (they are billed as output).
+ */
+function geminiEntries(text) {
+  const t = typeof text === 'string' ? text.trim() : '';
+  if (!t) return [];
+  let msgs = null;
+  try { const d = JSON.parse(t); if (d && Array.isArray(d.messages)) msgs = d.messages; } catch { msgs = null; }
+  if (!msgs) {
+    msgs = [];
+    for (const line of t.split('\n')) {
+      if (!line.includes('"tokens"')) continue;
+      try { msgs.push(JSON.parse(line)); } catch { /* skip a bad line */ }
+    }
+  }
+  const byId = new Map();
+  let n = 0;
+  for (const m of msgs) {
+    n++;
+    if (!m || typeof m !== 'object' || m.type !== 'gemini' || !m.tokens || typeof m.tokens !== 'object') continue;
+    const ts = timeMs(m.timestamp);
+    if (!Number.isFinite(ts)) continue;
+    const k = m.tokens;
+    const cached = Math.min(num(k.cached), num(k.input));
+    const e = {
+      ts,
+      model: cleanModel(m.model),
+      input: Math.max(0, num(k.input) - cached) + num(k.tool),
+      output: num(k.output) + num(k.thoughts),
+      cacheWrite: 0,
+      cacheRead: cached,
+    };
+    if (!e.input && !e.output && !e.cacheRead) continue;
+    byId.set(typeof m.id === 'string' && m.id ? m.id : '#' + n, e); // a message saved again replaces the old copy
+  }
+  return [...byId.values()];
+}
+
+module.exports = { geminiEntries, claudeEntry, codexStep, codexLimits, newCodexState, claudeWorth, codexWorth, timeMs, num };

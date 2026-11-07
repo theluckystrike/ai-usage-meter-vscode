@@ -23,12 +23,12 @@ const hash = (f) => crypto.createHash('sha1').update(fs.readFileSync(f)).digest(
 const before = Object.fromEntries(fx.files.map((f) => [f, hash(f)]));
 
 const R = { install: installVsix(work, vsix), steps: [], console: [], logs: {} };
-const base = { 'aiUsageMeter.claudeRoots': [fx.claudeRoot], 'aiUsageMeter.codexRoots': [fx.codexRoot], 'workbench.secondarySideBar.defaultVisibility': 'hidden', 'workbench.auxiliaryBar.visible': false, 'window.titleBarStyle': 'custom' };
+const base = { 'aiUsageMeter.claudeRoots': [fx.claudeRoot, fx.workRoot], 'aiUsageMeter.codexRoots': [fx.codexRoot], 'aiUsageMeter.geminiRoots': [fx.geminiRoot], 'workbench.secondarySideBar.defaultVisibility': 'hidden', 'workbench.auxiliaryBar.visible': false, 'window.titleBarStyle': 'custom' };
 const vs = await launch(work, Number(port), ws, base);
 const settingsFile = path.join(work, 'ud', 'User', 'settings.json');
 const setSettings = (extra) => { const s = JSON.parse(fs.readFileSync(settingsFile, 'utf8')); fs.writeFileSync(settingsFile, JSON.stringify({ ...s, ...extra }, null, 1)); };
 const shots = [];
-const shot = async (name) => { const f = path.join(shotDir, `x18-${String(shots.length + 1).padStart(2, '0')}-${name}.png`); await vs.shot(f); shots.push(f); return f; };
+const shot = async (name) => { const f = path.join(shotDir, `ai1-${String(shots.length + 1).padStart(2, '0')}-${name}.png`); await vs.shot(f); shots.push(f); return f; };
 const step = async (name, fn) => {
   const t0 = Date.now();
   try { const v = await fn(); R.steps.push({ name, ok: v !== false, value: v, ms: Date.now() - t0 }); }
@@ -59,8 +59,9 @@ try {
   await step('status bar shows Claude Code and Codex usage from the synthetic folders', async () => {
     const t = await vs.waitFor(async () => { const s = await statusText(); return s && /Claude .* · Codex /.test(s) ? s : null; }, 30000);
     if (!t) throw new Error('status text: ' + await statusText());
-    if (!/Codex 5h 43% wk 71%/.test(t)) throw new Error('codex limits missing: ' + t);
-    if (!/\d+h \d+m|\d+m/.test(t)) throw new Error('block countdown missing: ' + t);
+    if (!/Codex \S+ \S+ 5h 43% wk 71%/.test(t)) throw new Error('codex limits missing: ' + t);
+    if (!/Claude \S+ \S+ 5h 34% wk 61%/.test(t)) throw new Error('Claude Code saved plan limits missing: ' + t);
+    if (!/Gemini \S+ /.test(t)) throw new Error('Gemini CLI usage missing: ' + t);
     return t;
   });
   await step('hover shows the tooltip with split, block and reset times', async () => {
@@ -70,7 +71,8 @@ try {
     if (!tip) throw new Error('no hover');
     await shot('status-tooltip');
     if (/PRIVATE-TEXT-MARKER/.test(tip)) throw new Error('text leaked');
-    return tip.slice(0, 300);
+    if (!/Claude Code plan limits/.test(tip) || !/weekly Opus: 22% used/.test(tip)) throw new Error('limits not in tooltip: ' + tip.slice(0, 600));
+    return tip.slice(0, 400);
   });
   await vs.s.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 600, y: 300 }, vs.wb);
   await step('clicking the status item opens the dashboard', async () => {
@@ -85,9 +87,24 @@ try {
   });
   await step('dashboard tables: tool, project, model, day; no session text', async () => {
     const r = JSON.parse(await E(`JSON.stringify({ tool: document.querySelectorAll('#t-tool tbody tr').length, proj: [...document.querySelectorAll('#t-project tbody tr td:first-child')].map(td => td.textContent), model: [...document.querySelectorAll('#t-model tbody tr td:first-child')].map(td => td.textContent), day: document.querySelectorAll('#t-day tbody tr').length, note: document.getElementById('cost-note').textContent, marker: document.body.innerText.includes(${JSON.stringify(MARK)}) })`));
-    if (r.tool !== 2 || r.proj.length < 3 || r.model.length < 5 || r.day < 15) throw new Error(JSON.stringify(r));
+    if (r.tool !== 3 || r.proj.length < 3 || r.model.length < 5 || r.day < 15) throw new Error(JSON.stringify(r));
     if (r.marker) throw new Error('marker text shown');
     if (!/claude-experimental-x/.test(r.note) || !/2026-11-06/.test(r.note)) throw new Error('cost note: ' + r.note);
+    return r;
+  });
+  await step('limit tiles: Claude Code 5-hour and weekly percent per account, reset window marked', async () => {
+    const r = JSON.parse(await E(`JSON.stringify([...document.querySelectorAll('.tile.limit-claude')].map(t => t.innerText.replace(/\\n/g, ' | ')))`));
+    const all = r.join(' || ');
+    if (!/5-hour limit .*34% used/.test(all) || !/weekly limit .*61% used/.test(all) || !/weekly Opus limit .*22% used/.test(all)) throw new Error(all);
+    if (!/claude-work[^|]*\| reset/.test(all)) throw new Error('reset window of the second account: ' + all);
+    return r;
+  });
+  await step('account table lists both Claude Code config folders', async () => {
+    const r = JSON.parse(await E(`JSON.stringify({ hidden: document.getElementById('c-account').hidden, rows: [...document.querySelectorAll('#t-account tbody tr td:first-child')].map(td => td.textContent) })`));
+    if (r.hidden || r.rows.length !== 2) throw new Error(JSON.stringify(r));
+    await E(`document.getElementById('c-account').scrollIntoView({ block: 'center' })`);
+    await sleep(300);
+    await shot('accounts');
     return r;
   });
   await step('screenshot: dashboard, dark theme', async () => { await E(`window.scrollTo(0, 0)`); await sleep(300); return await shot('dashboard-dark'); });
@@ -120,6 +137,16 @@ try {
     const t1 = await vs.waitFor(async () => { const s = await statusText(); return s && s !== t0 ? s : null; }, 15000);
     if (!t1) throw new Error('status did not change: ' + t0);
     return { before: t0, after: t1 };
+  });
+  await step('a new saved reading in .claude.json updates the Claude Code limit and turns the item yellow at 90%', async () => {
+    const raw = JSON.parse(fs.readFileSync(fx.claudeConfig, 'utf8'));
+    raw.cachedUsageUtilization.utilization.five_hour.utilization = 92;
+    raw.cachedUsageUtilization.fetchedAtMs = Date.now();
+    fs.writeFileSync(fx.claudeConfig, JSON.stringify(raw, null, 2));
+    const t = await vs.waitFor(async () => { const s = await statusText(); return s && /Claude \S+ \S+ 5h 92%/.test(s) ? s : null; }, 15000);
+    if (!t) throw new Error('status: ' + await statusText());
+    const b = JSON.parse(await statusBox());
+    return { text: t, bg: b.bg };
   });
   await step('the Refresh button rereads without errors', async () => {
     await vs.wvClick(wv, `document.getElementById('refresh')`);
@@ -157,6 +184,20 @@ try {
     setSettings({ 'aiUsageMeter.showCodex': true });
     return t;
   });
+  await step('never a blank page: empty folders give a clear status and an empty-state dashboard', async () => {
+    const empty = path.join(work, 'empty');
+    fs.mkdirSync(empty, { recursive: true });
+    setSettings({ 'aiUsageMeter.claudeRoots': [path.join(empty, 'projects')], 'aiUsageMeter.codexRoots': [empty], 'aiUsageMeter.geminiRoots': [empty] });
+    const t = await vs.waitFor(async () => { const s = await vs.wbEval(`(() => { const e = [...document.querySelectorAll('.part.statusbar .statusbar-item')].find(i => /No AI usage yet/.test(i.textContent)); return e ? e.textContent.trim() : null; })()`); return s; }, 15000);
+    if (!t) throw new Error('no empty status');
+    await sleep(800);
+    wv = await dash();
+    const body = await vs.waitFor(() => E(`(() => { const t = document.body.innerText; return /No usage in this range/.test(t) && /Read from 0 local session files/.test(t) ? t.slice(0, 300) : null; })()`), 8000);
+    if (!body) throw new Error('dashboard: ' + await E(`document.body.innerText.slice(0, 400)`));
+    await shot('empty-state');
+    setSettings({ 'aiUsageMeter.claudeRoots': [fx.claudeRoot, fx.workRoot], 'aiUsageMeter.codexRoots': [fx.codexRoot], 'aiUsageMeter.geminiRoots': [fx.geminiRoot] });
+    return t;
+  });
   await step('Edit prices opens the prices setting', async () => {
     await sleep(1500);
     wv = await dash();
@@ -173,7 +214,7 @@ try {
     if (hits.length) R.logs[path.basename(f)] = hits.slice(0, 10);
   }
   await vs.close();
-  R.unchanged = fx.files.filter((f) => !f.includes('11111111') || f.includes('subagents')).every((f) => before[f] === hash(f));
+  R.unchanged = fx.files.filter((f) => (!f.includes('11111111') || f.includes('subagents')) && f !== fx.claudeConfig).every((f) => before[f] === hash(f));
   R.shots = shots;
   fs.writeFileSync(outJson, JSON.stringify(R, null, 1));
   console.log(R.steps.map((s) => `${s.ok ? 'PASS' : 'FAIL'} ${s.name}${s.error ? ' :: ' + s.error : ''}`).join('\n'));

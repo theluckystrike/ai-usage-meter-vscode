@@ -4,7 +4,8 @@
   const vscode = acquireVsCodeApi();
   const $ = (id) => document.getElementById(id);
   const SVGNS = 'http://www.w3.org/2000/svg';
-  const TOOL_NAMES = { claude: 'Claude Code', codex: 'Codex' };
+  const TOOL_NAMES = { claude: 'Claude Code', codex: 'Codex', gemini: 'Gemini CLI' };
+  const SERIES = ['claude', 'codex', 'gemini'];
   let data = null;
   let measure = (vscode.getState() || {}).measure === 'cost' ? 'cost' : 'tokens';
   let rendered = false;
@@ -43,6 +44,7 @@
     if (d >= 1) return d + 'd ' + (h % 24) + 'h';
     return h ? h + 'h ' + (m % 60) + 'm' : m + 'm';
   }
+  function ago(ms) { return !isFinite(ms) || ms < 60000 ? 'just now' : dur(ms) + ' ago'; }
   function clock(ms) { const d = new Date(ms); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
   function shortDay(k) {
     const p = k.split('-');
@@ -74,12 +76,24 @@
     const box = $('tiles');
     box.replaceChildren();
     const tools = data.tools;
-    for (const k of ['claude', 'codex']) {
-      if (tools[k] === false) continue;
+    for (const k of SERIES) {
+      if (tools[k] === false || !data.today[k]) continue;
+      if (k === 'gemini' && tools.gemini !== true) continue;
       const t = data.today[k];
       box.appendChild(tile(TOOL_NAMES[k] + ' today', tok(t.total) + ' tokens', [money(t.cost) + ' estimated', 'in ' + tok(t.input) + ' · out ' + tok(t.output) + ' · cache ' + tok(t.cacheWrite + t.cacheRead)], { cls: 'tool-' + k }));
     }
     if (tools.claude !== false) {
+      // Plan limits that Claude Code saved itself, newest account first (at most 3 accounts).
+      const lim = (data.claudeLimits || []).filter((a, i) => i === 0 || a.windows.some((w) => w.usedPercent !== null));
+      lim.slice(0, 3).forEach((a) => {
+        const who = lim.length > 1 ? ' · ' + (String(a.account).split(/[\\/]/).pop() || a.account) : ''; // ".claude-work"
+        const saved = a.fetchedAt ? 'saved by Claude Code ' + ago(data.now - a.fetchedAt) : 'saved by Claude Code';
+        for (const w of a.windows) {
+          const label = 'Claude Code ' + w.label + ' limit' + who;
+          if (w.usedPercent === null) box.appendChild(tile(label, 'reset', ['The window ended after Claude Code saved it', saved], { cls: 'limit-claude' }));
+          else box.appendChild(tile(label, w.usedPercent + '% used', [w.resetsIn !== null ? 'resets in ' + dur(w.resetsIn) + ' (' + clock(w.resetsAt) + ')' : 'reset time not saved', saved], { meter: w.usedPercent, cls: 'limit-claude' }));
+        }
+      });
       const b = data.block;
       if (b) {
         const pct = Math.round(((data.now - b.start) / (b.end - b.start)) * 100);
@@ -109,7 +123,7 @@
   function renderChart() {
     const box = $('chart');
     box.replaceChildren();
-    const series = ['claude', 'codex'].filter((k) => data.tools[k] !== false);
+    const series = SERIES.filter((k) => (k === 'gemini' ? data.tools.gemini === true : data.tools[k] !== false));
     $('chart-title').textContent = (measure === 'cost' ? 'Estimated cost' : 'Tokens') + ' per day, last ' + data.days + ' days';
     $('m-tokens').setAttribute('aria-checked', String(measure === 'tokens'));
     $('m-cost').setAttribute('aria-checked', String(measure === 'cost'));
@@ -230,6 +244,9 @@
   ];
   function renderTables() {
     table($('t-tool'), [{ label: 'Tool', get: (r) => r.name }].concat(NUMS), data.perTool, 0, 'No usage in this range.');
+    const acc = data.perAccount || [];
+    $('c-account').hidden = acc.length < 2;
+    if (acc.length >= 2) table($('t-account'), [{ label: 'Config folder', get: (r) => r.name, title: (r) => r.name }].concat(NUMS), acc, 0, 'No usage in this range.');
     table($('t-project'), [{ label: 'Folder', get: (r) => r.name, title: (r) => r.name }, { label: 'Tools', get: (r) => r.tools.map((k) => TOOL_NAMES[k]).join(', ') }].concat(NUMS), data.perProject, data.moreProjects, 'No usage in this range.');
     table($('t-model'), [{ label: 'Model', get: (r) => r.name }, { label: 'Tool', get: (r) => TOOL_NAMES[r.tool] }].concat(NUMS), data.perModel, data.moreModels, 'No usage in this range.');
     const daysDesc = data.perDay.slice().reverse().filter((d) => d.total > 0);

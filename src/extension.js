@@ -1,10 +1,12 @@
 'use strict';
-// Claude Code & Codex usage meter. Reads local session files read-only, keeps a byte offset per file and reads
+// Claude Code, Codex & Gemini CLI usage meter. Reads local session files read-only, keeps a byte offset per file and reads
 // only new lines. No network calls, no API keys, no telemetry.
 const vscode = require('vscode');
 const path = require('path');
+const os = require('os');
 const { UsageStore, DAY_MS } = require('./core/store');
-const { resolveRoots, listFiles } = require('./core/roots');
+const { resolveRoots, listFiles, geminiProjectNames } = require('./core/roots');
+const { ClaudeLimitsReader } = require('./core/claudeLimits');
 const { summarize } = require('./core/aggregate');
 const { buildTable } = require('./core/prices');
 const { statusView } = require('./core/statusbar');
@@ -24,7 +26,9 @@ function settings() {
   return {
     claudeRoots: c.get('claudeRoots', []),
     codexRoots: c.get('codexRoots', []),
-    tools: { claude: c.get('showClaudeCode', true) !== false, codex: c.get('showCodex', true) !== false },
+    geminiRoots: c.get('geminiRoots', []),
+    findClaudeAccounts: c.get('findClaudeAccounts', true) !== false,
+    tools: { claude: c.get('showClaudeCode', true) !== false, codex: c.get('showCodex', true) !== false, gemini: c.get('showGemini', true) !== false },
     refreshSeconds: num('refreshSeconds', 60, 10, 3600),
     historyDays: num('historyDays', 90, 7, 3650),
     prices: c.get('prices', {}),
@@ -38,6 +42,8 @@ class Meter {
     this.context = context;
     this.s = settings();
     this.store = new UsageStore({ historyDays: this.s.historyDays });
+    this.limitsReader = new ClaudeLimitsReader();
+    this.claudeLimits = [];
     this.scanning = null;
     this.again = false;
     this.firstDone = false;
@@ -45,7 +51,7 @@ class Meter {
     this.panelDays = 30;
     this.allRows = false;
     this.item = vscode.window.createStatusBarItem('aiUsageMeter.status', vscode.StatusBarAlignment.Right, 100);
-    this.item.name = 'Claude Code & Codex Usage';
+    this.item.name = 'Claude Code, Codex & Gemini CLI Usage';
     this.item.command = 'aiUsageMeter.openDashboard';
     this.item.text = '$(pulse) Reading AI usage…';
     this.timer = null;
@@ -61,9 +67,14 @@ class Meter {
   prices() { return buildTable(this.s.prices); }
 
   presentTools() {
-    const present = { claude: false, codex: false };
+    const present = { claude: this.claudeLimits.length > 0, codex: false, gemini: false };
     for (const st of this.store.files.values()) present[st.tool] = true;
-    return { claude: this.s.tools.claude && present.claude, codex: this.s.tools.codex && present.codex };
+    return { claude: this.s.tools.claude && present.claude, codex: this.s.tools.codex && present.codex, gemini: this.s.tools.gemini && present.gemini };
+  }
+
+  /** Tools for the dashboard: Claude Code and Codex as set, Gemini CLI only when it has files. */
+  dashTools() {
+    return { ...this.s.tools, gemini: this.presentTools().gemini };
   }
 
   /** Reads new lines from every file. Overlapping calls are merged into one more pass. */
@@ -75,8 +86,11 @@ class Meter {
         const now = Date.now();
         const roots = resolveRoots(this.s);
         const listing = await listFiles(roots, this.s.tools, now - this.s.historyDays * DAY_MS);
+        this.claudeLimits = this.s.tools.claude ? await this.limitsReader.read(roots.claudeConfigs) : [];
+        const geminiNames = this.s.tools.gemini ? await geminiProjectNames(roots.gemini) : {};
         await this.store.update(listing, {
           now,
+          geminiNames,
           onProgress: (i, n) => { if (!this.firstDone) this.item.text = `$(sync~spin) Reading AI usage ${i}/${n}`; },
         });
         this.firstDone = true;
@@ -90,13 +104,13 @@ class Meter {
     const { table } = this.prices();
     const now = Date.now();
     if (!this.firstDone) { if (this.s.statusBar) this.item.show(); this.postData(); return; }
-    if (this.s.statusBar && (this.s.tools.claude || this.s.tools.codex)) {
+    if (this.s.statusBar && (this.s.tools.claude || this.s.tools.codex || this.s.tools.gemini)) {
       const tools = this.presentTools();
-      if (!tools.claude && !tools.codex) {
+      if (!tools.claude && !tools.codex && !tools.gemini) {
         this.item.text = '$(pulse) No AI usage yet';
-        this.item.tooltip = 'No Claude Code or Codex session files found in the folders from settings. Click to open the dashboard.';
+        this.item.tooltip = 'No Claude Code, Codex or Gemini CLI session files found in the folders from settings. Click to open the dashboard.';
       } else {
-        const sum = summarize(this.store.entries(), { now, table, days: 1, tools, limits: this.store.limits });
+        const sum = summarize(this.store.entries(), { now, table, days: 1, tools, limits: this.store.limits, claudeLimits: this.claudeLimits });
         const v = statusView(sum, { tools, showCost: this.s.statusBarCost });
         this.item.text = v.text;
         const md = new vscode.MarkdownString(v.tooltip);
@@ -112,8 +126,9 @@ class Meter {
   postData() {
     if (!this.panel || !this.panel.visible) return;
     const { table, ignored } = this.prices();
-    const sum = summarize(this.store.entries(), { now: Date.now(), table, days: this.panelDays, tools: this.s.tools, limits: this.store.limits });
-    const msg = dataMessage(sum, { tools: this.s.tools, ignoredPrices: ignored, files: this.store.fileCount, scanning: !!this.scanning && !this.firstDone, allRows: this.allRows });
+    const tools = this.dashTools();
+    const sum = summarize(this.store.entries(), { now: Date.now(), table, days: this.panelDays, tools, limits: this.store.limits, claudeLimits: this.claudeLimits });
+    const msg = dataMessage(sum, { tools, ignoredPrices: ignored, files: this.store.fileCount, scanning: !!this.scanning && !this.firstDone, allRows: this.allRows });
     this.panel.webview.postMessage(msg);
   }
 
@@ -160,11 +175,17 @@ class Meter {
   rewatch() {
     this.watchers.splice(0).forEach((w) => w.dispose());
     const roots = resolveRoots(this.s);
-    const dirs = [...(this.s.tools.claude ? roots.claude : []), ...(this.s.tools.codex ? roots.codex : [])];
+    const dirs = [...(this.s.tools.claude ? roots.claude : []), ...(this.s.tools.codex ? roots.codex : [])].map((d) => [d, '**/*.jsonl']);
+    if (this.s.tools.gemini) for (const d of roots.gemini) dirs.push([d, '*/chats/session-*.{json,jsonl}']);
+    // The config file where Claude Code saves its plan limits.
+    if (this.s.tools.claude) for (const c of roots.claudeConfigs) {
+      dirs.push([c.dir, '.claude.json']);
+      if (path.resolve(c.dir) === path.resolve(os.homedir(), '.claude')) dirs.push([path.dirname(c.dir), '.claude.json']);
+    }
     const later = () => { clearTimeout(this.debounce); this.debounce = setTimeout(() => this.scan(), 1500); };
-    for (const r of dirs) {
+    for (const [r, glob] of dirs) {
       try {
-        const w = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(r), '**/*.jsonl'), false, false, false);
+        const w = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(vscode.Uri.file(r), glob), false, false, false);
         w.onDidCreate(later); w.onDidChange(later); w.onDidDelete(later);
         this.watchers.push(w);
       } catch { /* folder missing: the timer still picks it up later */ }
@@ -174,7 +195,8 @@ class Meter {
   reconfigure() {
     const old = this.s;
     this.s = settings();
-    const rootsChanged = JSON.stringify([old.claudeRoots, old.codexRoots, old.tools, old.historyDays]) !== JSON.stringify([this.s.claudeRoots, this.s.codexRoots, this.s.tools, this.s.historyDays]);
+    const key = (x) => JSON.stringify([x.claudeRoots, x.codexRoots, x.geminiRoots, x.findClaudeAccounts, x.tools, x.historyDays]);
+    const rootsChanged = key(old) !== key(this.s);
     if (rootsChanged) {
       this.store = new UsageStore({ historyDays: this.s.historyDays });
       this.firstDone = false;

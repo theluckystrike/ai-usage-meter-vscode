@@ -47,7 +47,7 @@ ${footer ? `<style nonce="${nonce}">${FOOTER_CSS}\n.zovo-support{padding:12px 0 
 </head>
 <body>
 <header class="top">
-  <h1>Claude Code &amp; Codex usage</h1>
+  <h1>Claude Code, Codex &amp; Gemini CLI usage</h1>
   <div class="controls">
     <label for="range">Range</label>
     <select id="range" aria-label="Days to show"></select>
@@ -69,6 +69,7 @@ ${footer ? `<style nonce="${nonce}">${FOOTER_CSS}\n.zovo-support{padding:12px 0 
   <div class="tip" id="tip" role="tooltip" hidden></div>
 </section>
 <section class="card"><h2>By tool</h2><div id="t-tool"></div></section>
+<section class="card" id="c-account" hidden><h2>By Claude Code account</h2><div id="t-account"></div></section>
 <section class="card"><h2>By project folder</h2><div id="t-project"></div></section>
 <section class="card"><h2>By model</h2><div id="t-model"></div></section>
 <section class="card"><h2>By day</h2><div id="t-day"></div></section>

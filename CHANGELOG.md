@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0 (2026-11-07)
+
+- Your Claude Code 5-hour and weekly limit in percent, in the status bar and on the dashboard. The meter reads the reading Claude Code saves in its own config file, so it needs no login, no token and no network call. Weekly Opus and Sonnet limits show when your plan has them, and a window that has reset since the last reading says "reset".
+- Gemini CLI usage: tokens and estimated cost from `~/.gemini/tmp/<project>/chats`, in the status bar, the tiles, the chart and every table.
+- Several Claude Code accounts. Other config folders such as `~/.claude-work` and `~/.config/claude` are found on their own, each with its own limits, and a new table splits usage by account. Turn this off with `aiUsageMeter.findClaudeAccounts`.
+- The item turns yellow when any limit, Claude Code or Codex, reaches 90%.
+- New name: Claude Code Usage, Codex Usage & Gemini CLI Usage Meter.
+
 ## 0.1.3 (2026-11-07)
 
 - The footer under the viewer has a "Rate" link next to Sponsor and More free viewers. It opens the review page of this extension on the Marketplace. Nothing pops up and nothing asks you for a rating. "Hide" still hides the whole line.

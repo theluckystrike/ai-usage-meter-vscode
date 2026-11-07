@@ -2,7 +2,8 @@
 // Keeps usage entries in memory and reads only what was added to each file since the last read.
 // Per file it remembers the byte offset after the last complete line, the inode and the Codex running totals.
 const { readNewLines, parseLine } = require('./lines');
-const { claudeEntry, codexStep, newCodexState, claudeWorth, codexWorth } = require('./usage');
+const fs = require('fs');
+const { claudeEntry, codexStep, newCodexState, claudeWorth, codexWorth, geminiEntries } = require('./usage');
 const { projectLabelFromDir } = require('./roots');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -12,10 +13,12 @@ class UsageStore {
   constructor(opts = {}) {
     this.historyDays = opts.historyDays || 90;
     this.maxLineBytes = opts.maxLineBytes || 32 * 1024 * 1024;
+    this.maxWholeFileBytes = opts.maxWholeFileBytes || 128 * 1024 * 1024;
+    this.geminiNames = {}; // Gemini CLI folder name -> project path
     this.files = new Map(); // file -> { tool, offset, ino, projectDir, codex, keys: Set, entries: [] }
     this.claude = new Map(); // dedupe key -> entry
     this.limits = null; // newest Codex rate limits
-    this.stats = { badLines: 0, longLines: 0, bytesRead: 0, filesRead: 0, scans: 0 };
+    this.stats = { badLines: 0, longLines: 0, bytesRead: 0, filesRead: 0, scans: 0, bigFiles: 0 };
   }
 
   cutoff(now) { return now - this.historyDays * DAY_MS; }
@@ -39,6 +42,7 @@ class UsageStore {
     const isCancelled = opts.isCancelled || (() => false);
     const onProgress = opts.onProgress || (() => {});
     const cutoff = this.cutoff(now);
+    if (opts.geminiNames) this.geminiNames = opts.geminiNames;
     let changed = false, filesRead = 0, bytesRead = 0;
     const listed = new Set(listing.map((f) => f.file));
     for (const file of [...this.files.keys()]) if (!listed.has(file)) { this.forget(file); changed = true; }
@@ -51,8 +55,19 @@ class UsageStore {
       let st = this.files.get(f.file);
       if (st && (f.size < st.offset || (f.ino && st.ino && f.ino !== st.ino))) { this.forget(f.file); st = null; changed = true; }
       if (!st) {
-        st = { tool: f.tool, offset: 0, ino: f.ino || 0, projectDir: f.projectDir || '', codex: newCodexState(), keys: new Set(), entries: [], line: 0 };
+        st = { tool: f.tool, offset: 0, ino: f.ino || 0, projectDir: f.projectDir || '', account: f.account || '', codex: newCodexState(), keys: new Set(), entries: [], line: 0, mtimeMs: 0 };
         this.files.set(f.file, st);
+      }
+      if (f.tool === 'gemini') {
+        // Gemini CLI rewrites the whole session file, so it is read again in full when it changes.
+        if (st.offset === f.size && st.mtimeMs === f.mtimeMs) continue;
+        if (f.size > this.maxWholeFileBytes) { this.stats.bigFiles++; st.offset = f.size; st.mtimeMs = f.mtimeMs; continue; }
+        let text;
+        try { text = await fs.promises.readFile(f.file, 'utf8'); } catch { continue; }
+        st.entries = this.geminiFrom(text, st, cutoff);
+        st.offset = f.size; st.mtimeMs = f.mtimeMs;
+        changed = true; filesRead++; bytesRead += f.size;
+        continue;
       }
       if (f.size <= st.offset) continue;
       const before = st.offset;
@@ -74,6 +89,18 @@ class UsageStore {
     return { changed, filesRead, bytesRead };
   }
 
+  geminiFrom(text, st, cutoff) {
+    const project = this.geminiNames[st.projectDir] || st.projectDir || '';
+    const out = [];
+    for (const e of geminiEntries(text)) {
+      if (e.ts < cutoff) continue;
+      e.tool = 'gemini';
+      e.project = project;
+      out.push(e);
+    }
+    return out;
+  }
+
   ingest(file, st, line, cutoff) {
     st.line++;
     if (st.tool === 'claude') {
@@ -85,6 +112,7 @@ class UsageStore {
       e.tool = 'claude';
       e.file = file;
       e.project = e.cwd || projectLabelFromDir(st.projectDir);
+      e.account = st.account || '';
       delete e.cwd;
       const old = this.claude.get(e.key);
       // The same message can be written several times while it streams; keep the most complete one.
@@ -112,7 +140,7 @@ class UsageStore {
     for (const st of this.files.values()) if (st.entries.length && st.entries[0].ts < cutoff) st.entries = st.entries.filter((e) => e.ts >= cutoff);
   }
 
-  /** All entries (Claude Code and Codex). */
+  /** All entries (Claude Code, Codex and Gemini CLI). */
   *entries() {
     yield* this.claude.values();
     for (const st of this.files.values()) yield* st.entries;

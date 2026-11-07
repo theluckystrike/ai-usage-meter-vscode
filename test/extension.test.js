@@ -61,16 +61,19 @@ test('extension: activates, reads the fixture folders, fills the status bar and 
   t.mock.timers.enable({ apis: ['Date'], now: NOW });
   const fx = fixtures(NOW);
   t.after(fx.cleanup);
-  const f = fakeVscode({ claudeRoots: [fx.claudeRoot], codexRoots: [fx.codexRoot], refreshSeconds: 3600 });
+  const f = fakeVscode({ claudeRoots: [fx.claudeRoot], codexRoots: [fx.codexRoot], geminiRoots: [fx.geminiRoot], refreshSeconds: 3600 });
   const ext = withVscode(f.vscode, () => { delete require.cache[require.resolve('../src/extension')]; return require('../src/extension'); });
   const context = { subscriptions: [], extensionPath: require('path').join(__dirname, '..'), globalState: { get() {}, async update() {} } };
   const api = ext.activate(context);
   await api.meter.scan();
   const item = f.items[0];
   assert.ok(item.shown);
-  assert.match(item.text, /Claude \S+ \$\S+ · Codex \S+ \$\S+ · \$\(clock\) \S+/);
+  assert.match(item.text, /Claude \S+ \$\S+ 5h 34% wk 61% · Codex \S+ \$\S+ 5h \d+% wk \d+% · Gemini \S+ <?\$\S+$/);
+  assert.doesNotMatch(item.text, /\$\(clock\)/, 'the saved 5-hour limit replaces the local block clock');
   assert.match(item.tooltip.value, /Codex rate limits/);
-  assert.equal(f.watchers.length, 2, 'one watcher per root');
+  assert.match(item.tooltip.value, /Claude Code plan limits/);
+  assert.ok(!item.tooltip.value.includes(fx.mark), 'no account or session text in the tooltip');
+  assert.equal(f.watchers.length, 4, 'one watcher per root plus the Claude Code config file');
   for (const id of ['aiUsageMeter.openDashboard', 'aiUsageMeter.refresh', 'aiUsageMeter.editPrices', 'aiUsageMeter.supportDeveloper', 'aiUsageMeter.moreViewers']) assert.ok(f.commands.has(id), id);
   await f.vscode.commands.executeCommand('aiUsageMeter.openDashboard');
   const p = f.panels[0];
@@ -79,7 +82,10 @@ test('extension: activates, reads the fixture folders, fills the status bar and 
   const data = p.posted.find((m) => m.type === 'data');
   assert.ok(data);
   assert.equal(data.perDay.length, 30);
-  assert.ok(data.today.claude.total > 0 && data.today.codex.total > 0);
+  assert.ok(data.today.claude.total > 0 && data.today.codex.total > 0 && data.today.gemini.total > 0);
+  assert.equal(data.tools.gemini, true);
+  assert.equal(data.claudeLimits.length, 1);
+  assert.deepEqual(data.claudeLimits[0].windows.map((w) => [w.name, w.usedPercent]), [['5h', 34], ['wk', 61], ['wk Opus', 22]]);
   assert.ok(data.block, 'an active 5-hour block');
   assert.ok(!JSON.stringify(p.posted).includes(fx.mark), 'no session text in webview messages');
   p.send({ type: 'setRange', days: 7 });
@@ -111,7 +117,7 @@ test('support: the dashboard footer shows by default and aiUsageMeter.showSuppor
   const fx = fixtures(NOW);
   t.after(fx.cleanup);
   for (const [extra, shown] of [[{}, true], [{ showSupportLinks: false }, false]]) {
-    const f = fakeVscode({ claudeRoots: [fx.claudeRoot], codexRoots: [fx.codexRoot], refreshSeconds: 3600, ...extra });
+    const f = fakeVscode({ claudeRoots: [fx.claudeRoot], codexRoots: [fx.codexRoot], geminiRoots: [fx.geminiRoot], refreshSeconds: 3600, ...extra });
     let opts = null;
     const create = f.vscode.window.createWebviewPanel;
     f.vscode.window.createWebviewPanel = (type, title, col, o) => { opts = o; return create(type, title, col, o); };

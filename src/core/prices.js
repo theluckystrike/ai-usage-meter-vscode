@@ -31,6 +31,12 @@ const DEFAULT_PRICES = {
   'gpt-5.1-codex': { input: 1.25, output: 10, cacheWrite: 0, cacheRead: 0.125 },
   'gpt-5-codex': { input: 1.25, output: 10, cacheWrite: 0, cacheRead: 0.125 },
   'gpt-5': { input: 1.25, output: 10, cacheWrite: 0, cacheRead: 0.125 },
+  // Gemini: Google's paid-tier API prices for prompts up to 200k tokens. Thinking tokens count as output.
+  'gemini-3-pro': { input: 2, output: 12, cacheWrite: 0, cacheRead: 0.2 },
+  'gemini-3-flash': { input: 0.5, output: 3, cacheWrite: 0, cacheRead: 0.05 },
+  'gemini-2.5-pro': { input: 1.25, output: 10, cacheWrite: 0, cacheRead: 0.125 },
+  'gemini-2.5-flash-lite': { input: 0.1, output: 0.4, cacheWrite: 0, cacheRead: 0.01 },
+  'gemini-2.5-flash': { input: 0.3, output: 2.5, cacheWrite: 0, cacheRead: 0.03 },
 };
 
 const FIELDS = ['input', 'output', 'cacheWrite', 'cacheRead'];
