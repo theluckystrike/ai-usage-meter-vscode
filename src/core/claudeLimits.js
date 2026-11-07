@@ -44,6 +44,26 @@ function parseLimits(obj) {
     if (v === null) continue;
     windows.push({ key, name, label, usedPercent: Math.max(0, Math.min(100, v)), resetsAt: timeMs(w.resets_at) });
   }
+  // Newer Claude Code versions also save a `limits` list. Team plans leave seven_day empty and keep their
+  // weekly limit there, scoped to one model, so read it for anything the windows above did not give.
+  if (Array.isArray(u.limits)) {
+    const have = new Set(windows.map((w) => w.key));
+    for (const l of u.limits) {
+      if (!l || typeof l !== 'object' || typeof l.percent !== 'number' || !Number.isFinite(l.percent)) continue;
+      let key, name, label;
+      if (l.kind === 'session') [key, name, label] = WINDOWS[0];
+      else if (l.kind === 'weekly_all') [key, name, label] = WINDOWS[1];
+      else if (l.kind === 'weekly_scoped') {
+        const m = l.scope && typeof l.scope === 'object' && l.scope.model && typeof l.scope.model === 'object' ? l.scope.model.display_name : null;
+        if (typeof m !== 'string' || !/^[\w .-]{1,40}$/.test(m)) continue;
+        key = 'seven_day_' + m.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+        name = 'wk ' + m; label = 'weekly ' + m;
+      } else continue;
+      if (have.has(key)) continue;
+      have.add(key);
+      windows.push({ key, name, label, usedPercent: Math.max(0, Math.min(100, l.percent)), resetsAt: timeMs(l.resets_at) });
+    }
+  }
   if (!windows.length) return null;
   return { fetchedAt: timeMs(c.fetchedAtMs), windows };
 }

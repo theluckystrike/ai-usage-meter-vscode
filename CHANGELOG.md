@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2 (2026-11-07)
+
+- Claude Code Team plans now show their weekly limit. Claude Code saves it in a newer `limits` list and leaves the old weekly field empty, so 0.2.0 showed only the 5-hour limit for those accounts. A weekly limit for one model, such as "weekly Fable", now shows in the tooltip and on the dashboard for every plan.
+
 ## 0.2.1 (2026-11-07)
 
 - "More free viewers" now starts with the Zovo extensions most related to this one. Picking one opens its Marketplace page, where you choose to install it.

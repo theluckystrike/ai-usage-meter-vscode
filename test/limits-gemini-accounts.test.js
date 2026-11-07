@@ -223,3 +223,26 @@ test('status bar: accounts whose windows have all reset are left out of the tool
   assert.doesNotMatch(v.tooltip, /claude-old/);
   assert.equal(v.warn, false, 'an old 98% that has reset does not warn');
 });
+
+test('limits: Team plans keep the weekly limit only in the limits list (seven_day is null)', () => {
+  const raw = { cachedUsageUtilization: { fetchedAtMs: 1762480000000, accountUuid: 'x', utilization: {
+    five_hour: { utilization: 34, resets_at: '2026-11-07T08:00:00Z' }, seven_day: null, seven_day_opus: null, seven_day_sonnet: null,
+    limits: [
+      { kind: 'session', group: 'session', percent: 34, severity: 'normal', resets_at: '2026-11-07T08:00:00Z', scope: null, is_active: true },
+      { kind: 'weekly_scoped', group: 'weekly', percent: 15, severity: 'normal', resets_at: '2026-11-12T03:00:00Z', scope: { model: { id: null, display_name: 'Fable' }, surface: null }, is_active: false },
+      { kind: 'mystery', percent: 50 }, { kind: 'weekly_all', percent: 'x' }, null,
+    ] } } };
+  const l = parseLimits(raw);
+  assert.deepEqual(l.windows.map((w) => [w.key, w.name, w.label, w.usedPercent]), [['five_hour', '5h', '5-hour', 34], ['seven_day_fable', 'wk Fable', 'weekly Fable', 15]]);
+  assert.equal(l.windows[1].resetsAt, Date.parse('2026-11-12T03:00:00Z'));
+});
+
+test('limits: the limits list fills in a missing weekly window and never doubles one that is there', () => {
+  const both = parseLimits({ cachedUsageUtilization: { utilization: { seven_day: { utilization: 79, resets_at: null }, limits: [
+    { kind: 'weekly_all', percent: 79 }, { kind: 'weekly_scoped', percent: 100, scope: { model: { display_name: 'Fable' } } }] } } });
+  assert.deepEqual(both.windows.map((w) => [w.key, w.usedPercent]), [['seven_day', 79], ['seven_day_fable', 100]]);
+  const onlyList = parseLimits({ cachedUsageUtilization: { utilization: { limits: [{ kind: 'weekly_all', percent: 9, resets_at: '2026-11-12T03:00:00Z' }] } } });
+  assert.deepEqual(onlyList.windows.map((w) => [w.key, w.name, w.usedPercent]), [['seven_day', 'wk', 9]]);
+  const opus = parseLimits({ cachedUsageUtilization: { utilization: { seven_day_opus: { utilization: 5 }, limits: [{ kind: 'weekly_scoped', percent: 6, scope: { model: { display_name: 'Opus' } } }] } } });
+  assert.deepEqual(opus.windows.map((w) => [w.key, w.usedPercent]), [['seven_day_opus', 5]]);
+});
