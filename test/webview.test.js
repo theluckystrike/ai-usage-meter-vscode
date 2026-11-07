@@ -53,7 +53,9 @@ test('html: strict CSP, nonce script, no remote content', () => {
   assert.match(csp, /script-src 'nonce-N0nce'/);
   assert.match(csp, /connect-src 'none'/);
   assert.doesNotMatch(csp, /unsafe-inline|unsafe-eval|https?:/);
-  assert.doesNotMatch(html, /https?:\/\//);
+  // The footer's Rate link is a click-only link to the Marketplace review page, not a loaded resource.
+  const rateLink = / href="https:\/\/marketplace\.visualstudio\.com\/items\?itemName=[^"]+#review-details"/g;
+  assert.doesNotMatch(html.replace(rateLink, ''), /https?:\/\//);
   assert.match(html, /<script nonce="N0nce" src=/);
   assert.equal(buildHtml({ cspSource: 'x', scriptUri: 'a', styleUri: 'b', showSupportLinks: false }).includes('zovo-support'), false);
 });

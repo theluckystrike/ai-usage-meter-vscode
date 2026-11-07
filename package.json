@@ -2,7 +2,7 @@
   "name": "ai-usage-meter",
   "displayName": "Claude Code Usage & Codex Usage Cost Meter",
   "description": "See today's Claude Code and Codex tokens and estimated cost in the status bar, with the Claude Code 5-hour block, Codex rate limits and a 30-day dashboard. Offline. Not affiliated with Anthropic or OpenAI.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "zovo",
   "license": "MIT",
   "icon": "icon.png",

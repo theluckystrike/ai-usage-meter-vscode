@@ -1,5 +1,5 @@
 'use strict';
-const { fixtures } = require('./helpers');
+const { NOW, fixtures } = require('./helpers');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('module');
@@ -57,7 +57,9 @@ function withVscode(fake, fn) {
 }
 
 test('extension: activates, reads the fixture folders, fills the status bar and the dashboard', async (t) => {
-  const fx = fixtures(Date.now());
+  // Same fixed clock as the other tests, so "today" never depends on the hour the suite runs.
+  t.mock.timers.enable({ apis: ['Date'], now: NOW });
+  const fx = fixtures(NOW);
   t.after(fx.cleanup);
   const f = fakeVscode({ claudeRoots: [fx.claudeRoot], codexRoots: [fx.codexRoot], refreshSeconds: 3600 });
   const ext = withVscode(f.vscode, () => { delete require.cache[require.resolve('../src/extension')]; return require('../src/extension'); });
@@ -104,7 +106,9 @@ test('support: package.json has the sponsor field, the two commands, the setting
 });
 
 test('support: the dashboard footer shows by default and aiUsageMeter.showSupportLinks=false hides it', async (t) => {
-  const fx = fixtures(Date.now());
+  // Same fixed clock as the other tests, so "today" never depends on the hour the suite runs.
+  t.mock.timers.enable({ apis: ['Date'], now: NOW });
+  const fx = fixtures(NOW);
   t.after(fx.cleanup);
   for (const [extra, shown] of [[{}, true], [{ showSupportLinks: false }, false]]) {
     const f = fakeVscode({ claudeRoots: [fx.claudeRoot], codexRoots: [fx.codexRoot], refreshSeconds: 3600, ...extra });
