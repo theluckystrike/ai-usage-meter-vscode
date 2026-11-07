@@ -2,7 +2,7 @@
   "name": "ai-usage-meter",
   "displayName": "Claude Code Usage, Codex Usage & Gemini CLI Usage Meter",
   "description": "Claude Code usage, Codex usage and Gemini CLI usage in the status bar: tokens, estimated cost and your Claude Code 5-hour and weekly limit, read offline from local files. Codex rate limits and a 30-day dashboard. Not affiliated with Anthropic, OpenAI or Google.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "zovo",
   "license": "MIT",
   "icon": "icon.png",

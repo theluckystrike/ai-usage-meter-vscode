@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 (2026-11-07)
+
+- "More free viewers" now starts with the Zovo extensions most related to this one. Picking one opens its Marketplace page, where you choose to install it.
+- The README has a "Support Zovo" section with GitHub Sponsors and the developer's GitHub profile, and "More tools by Zovo" lists related extensions.
+
 ## 0.2.0 (2026-11-07)
 
 - Your Claude Code 5-hour and weekly limit in percent, in the status bar and on the dashboard. The meter reads the reading Claude Code saves in its own config file, so it needs no login, no token and no network call. Weekly Opus and Sonnet limits show when your plan has them, and a window that has reset since the last reading says "reset".
